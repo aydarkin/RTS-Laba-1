@@ -15,6 +15,7 @@ namespace RTS_Laba_1
     {
         int counter = 0;
         string bufer = "";
+        Mutex mutex = new Mutex();
 
         Thread consume;
         Thread produce;
@@ -25,11 +26,7 @@ namespace RTS_Laba_1
 
             produce = new Thread(new ThreadStart(Produce));
             consume = new Thread(new ThreadStart(Consume));
-
-            // запускаем потребителя
-            
-            
-
+            consume.Start();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -37,31 +34,33 @@ namespace RTS_Laba_1
             produce = new Thread(new ThreadStart(Produce));
             produce.Start();
 
-            consume = new Thread(new ThreadStart(Consume));
-            consume.Start();
+            //consume = new Thread(new ThreadStart(Consume));
+            //consume.Start();
         }
 
         void Produce()
         {
-            lock (bufer)
+            mutex.WaitOne();
+
+            counter++;
+            bufer = $"Сообщение №{counter}";
+            Invoke(new Action(() =>
             {
-                counter++;
-                bufer = $"Сообщение №{counter}";
-                Invoke(new Action(() =>
-                {
-                    textBox1.Text = bufer;
-                }));
-            }
+                textBox1.Text = bufer;
+            }));
+            Thread.Sleep(50);
+
+            mutex.ReleaseMutex();
         }
 
         Queue<string> consumerBuffer = new Queue<string>(3);
         void Consume()
         {
-            var isAdd = false;
-
-            produce.Join();
-            lock (bufer)
+            while (true)
             {
+                var isAdd = false;
+
+                mutex.WaitOne();
                 if (bufer.Length > 0)
                 {
                     if (consumerBuffer.Count < 3)
@@ -74,25 +73,37 @@ namespace RTS_Laba_1
                         {
                             listBox2.Items.Clear();
                             listBox2.Items.AddRange(consumerBuffer.ToArray());
+                            textBox1.Text = "";
                         }));
 
                         bufer = "";
                     }
                 }
-            }
-            
-            if (isAdd)
-            {
-                Thread.Sleep(1200);
-                Invoke(new Action(() =>
-                {
-                    textBox1.Text = "";
-                    listBox1.Items.Add(consumerBuffer.Dequeue());
+                mutex.ReleaseMutex();
 
-                    listBox2.Items.Clear();
-                    listBox2.Items.AddRange(consumerBuffer.ToArray());
-                }));
+                if (isAdd)
+                {
+                    var t = new Thread(new ThreadStart(new Action(() => 
+                    {
+                        Thread.Sleep(1200);
+                        Invoke(new Action(() =>
+                        {
+                            listBox1.Items.Add(consumerBuffer.Dequeue());
+
+                            listBox2.Items.Clear();
+                            listBox2.Items.AddRange(consumerBuffer.ToArray());
+                        }));
+                    })));
+                    t.Start();
+                }
             }
+
+          
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            consume.Abort();
         }
     }
 }
