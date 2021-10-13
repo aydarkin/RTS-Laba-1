@@ -17,14 +17,13 @@ namespace RTS_Laba_1
         string bufer = "";
         Mutex mutex = new Mutex();
 
-        Thread consume;
         Thread produce;
+        Thread consume;
 
         public Form1()
         {
             InitializeComponent();
 
-            produce = new Thread(new ThreadStart(Produce));
             consume = new Thread(new ThreadStart(Consume));
             consume.Start();
         }
@@ -34,8 +33,6 @@ namespace RTS_Laba_1
             produce = new Thread(new ThreadStart(Produce));
             produce.Start();
 
-            //consume = new Thread(new ThreadStart(Consume));
-            //consume.Start();
         }
 
         void Produce()
@@ -89,7 +86,6 @@ namespace RTS_Laba_1
                         Invoke(new Action(() =>
                         {
                             listBox1.Items.Add(consumerBuffer.Dequeue());
-
                             listBox2.Items.Clear();
                             listBox2.Items.AddRange(consumerBuffer.ToArray());
                         }));
