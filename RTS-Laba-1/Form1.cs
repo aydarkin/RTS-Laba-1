@@ -16,23 +16,27 @@ namespace RTS_Laba_1
         int counter = 0;
         string bufer = "";
         Mutex mutex = new Mutex();
+        Mutex mutexConsumer = new Mutex();
 
-        Thread produce;
-        Thread consume;
+        Task produce;
+        Task consume;
+        Semaphore semaphore;
 
         public Form1()
         {
             InitializeComponent();
 
-            consume = new Thread(new ThreadStart(Consume));
-            consume.Start();
+            ThreadPool.SetMaxThreads(10, 10);
+            semaphore = new Semaphore(3, 3);
+
+            //запуск Consume в потоке consume из пула
+            consume = Task.Run(Consume);
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            produce = new Thread(new ThreadStart(Produce));
-            produce.Start();
-
+            //запуск Produce в потоке produce из пула
+            produce = Task.Run(Produce);
         }
 
         void Produce()
@@ -53,14 +57,14 @@ namespace RTS_Laba_1
         Queue<string> consumerBuffer = new Queue<string>(3);
         void Consume()
         {
-            while (true)
+            while (!isClosed)
             {
                 var isAdd = false;
 
                 mutex.WaitOne();
                 if (bufer.Length > 0)
                 {
-                    if (consumerBuffer.Count < 3)
+                    if (consumerBuffer.Count < 5)
                     {
                         isAdd = true;
                         consumerBuffer.Enqueue(bufer);
@@ -80,26 +84,32 @@ namespace RTS_Laba_1
 
                 if (isAdd)
                 {
-                    var t = new Thread(new ThreadStart(new Action(() => 
+                    Task.Run(() => 
                     {
+                        semaphore.WaitOne();
                         Thread.Sleep(1200);
                         Invoke(new Action(() =>
                         {
+                            mutexConsumer.WaitOne();
                             listBox1.Items.Add(consumerBuffer.Dequeue());
                             listBox2.Items.Clear();
                             listBox2.Items.AddRange(consumerBuffer.ToArray());
+                            mutexConsumer.ReleaseMutex();
                         }));
-                    })));
-                    t.Start();
+
+                        semaphore.Release();
+                    });
                 }
             }
 
           
         }
 
+        bool isClosed = false;
+
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
-            consume.Abort();
+            isClosed = true;
         }
     }
 }
